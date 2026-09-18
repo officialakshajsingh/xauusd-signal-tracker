@@ -1,0 +1,77 @@
+name: probe
+on: workflow_dispatch
+jobs:
+  chrome:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - run: pip install -q playwright
+      - name: Real Chrome on the watch page
+        shell: python
+        run: |
+          import base64, time
+          from playwright.sync_api import sync_playwright
+          ADS = ("doubleclick.net", "googlesyndication", "/pagead/", "googleadservices", "/api/stats/ads", "get_midroll")
+          with sync_playwright() as p:
+              b = p.chromium.launch(channel="chrome", headless=True,
+                                    args=["--autoplay-policy=no-user-gesture-required", "--mute-audio"])
+              ctx = b.new_context(viewport={"width": 1920, "height": 1080}, locale="en-US")
+              ctx.route("**/*", lambda r: r.abort() if any(s in r.request.url for s in ADS) else r.continue_())
+              pg = ctx.new_page()
+              t0 = time.time()
+              pg.goto("https://www.youtube.com/watch?v=3H4IVQejlDE", wait_until="domcontentloaded", timeout=60000)
+              st = {}
+              for i in range(40):
+                  st = pg.evaluate("""() => { const v = document.querySelector('video'); const p = document.getElementById('movie_player');
+                      return {w: v && v.videoWidth, h: v && v.videoHeight, t: v && v.currentTime, paused: v && v.paused,
+                              ad: !!(p && p.classList.contains('ad-showing')), q: p && p.getPlaybackQuality && p.getPlaybackQuality(),
+                              err: (document.querySelector('.ytp-error, yt-playability-error-supported-renderers') || {}).innerText || null,
+                              title: document.title} }""")
+                  print("PROBE", i, round(time.time() - t0, 1), st, flush=True)
+                  if st["w"] and st["w"] >= 1920 and not st["ad"] and (st["t"] or 0) > 1:
+                      break
+                  pg.evaluate("""() => { const p = document.getElementById('movie_player'); try { const l = p.getAvailableQualityLevels();
+                      if (l && l.length) p.setPlaybackQualityRange(l[0], l[0]); } catch (e) {} const v = document.querySelector('video'); v && v.play && v.play().catch(() => {}); }""")
+                  time.sleep(1.5)
+              pg.screenshot(path="page.png")
+              try:
+                  data = pg.evaluate("""() => { const v = document.querySelector('video'); const c = document.createElement('canvas');
+                      c.width = v.videoWidth; c.height = v.videoHeight; c.getContext('2d').drawImage(v, 0, 0); return c.toDataURL('image/png'); }""")
+                  open("frame.png", "wb").write(base64.b64decode(data.split(",", 1)[1]))
+                  print("PROBE frame saved", st, "secs", round(time.time() - t0, 1))
+              except Exception as e:
+                  print("PROBE canvas failed", e)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: chrome-probe
+          path: "*.png"
+
+  pot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: yt-dlp with the bgutil PO-token provider
+        run: |
+          pip install -q yt-dlp bgutil-ytdlp-pot-provider
+          VER=$(pip show bgutil-ytdlp-pot-provider | awk '/^Version/{print $2}')
+          echo "PROBE provider $VER"
+          git clone -q --depth 1 --branch "$VER" https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git bg \
+            || git clone -q --depth 1 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git bg
+          cd bg/server && npm ci --silent && npx tsc && (node build/main.js > ../../pot.log 2>&1 &) && cd ../..
+          sleep 5
+          for c in default web web_safari mweb tv; do
+            args=""; [ "$c" != default ] && args="--extractor-args youtube:player_client=$c"
+            if out=$(yt-dlp $args --js-runtimes node -F "https://www.youtube.com/watch?v=3H4IVQejlDE" 2>&1); then
+              echo "PROBE $c OK: $(echo "$out" | grep -c m3u8) m3u8 formats"
+            else
+              echo "PROBE $c FAIL: $(echo "$out" | grep -m1 ERROR | cut -c1-160)"
+            fi
+          done
+          tail -5 pot.log | sed 's/^/PROBE pot.log: /'
