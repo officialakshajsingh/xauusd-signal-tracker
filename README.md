@@ -37,7 +37,7 @@ Last capture **18 Sep 13:23 IST** (2026-09-18T07:53:31Z) · chart clock 11:53:32
 
 **Trend table:** 1m 🟢 · 3m 🟢 · 5m 🟢 · 15m 🟢 · 30m 🟢 · 1H 🟢 · 2H 🟢 · 4H 🟢 · 8H 🟢 · D 🔴
 
-⚠️ Notes on this capture: TP3 label hidden; derived from entry and SL
+⚠️ Notes on this capture: TP3 label hidden; derived from entry and SL; newest capture failed at 08:13 UTC (HTTPError); showing the last good one
 
 ## 📒 Trade log (latest 15)
 

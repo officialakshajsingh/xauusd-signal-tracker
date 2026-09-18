@@ -1,4 +1,6 @@
 {
- "consecutive_failures": 0,
- "last_ok_utc": "2026-09-18T07:53:31Z"
+ "consecutive_failures": 1,
+ "last_ok_utc": "2026-09-18T07:53:31Z",
+ "last_error": "2026-09-18T08:13:50Z HTTPError: HTTP Error 403: Forbidden",
+ "last_error_utc": "2026-09-18T08:13:50Z"
 }
