@@ -20,6 +20,18 @@ def _dot(v: str) -> str:
     return "🟢" if v in ("Bullish", "Buy") else "🔴" if v in ("Bearish", "Sell") else "⚪"
 
 
+def scoreboard(trades: list[dict]) -> str:
+    closed = [t for t in trades if t["status"] == "closed"]
+    if not closed:
+        return "**Scoreboard:** no closed trades yet."
+    n = len(closed)
+    reached = {k: sum(1 for t in closed if f"TP{k}" in t["tp_hits"].split()) for k in (1, 2, 3)}
+    net = sum(float(t["r"]) for t in closed)
+    return (f"**Scoreboard ({n} closed trades):** reached TP1 {reached[1]}/{n} ({reached[1] / n:.0%}) · "
+            f"TP2 {reached[2]}/{n} · TP3 {reached[3]}/{n} · no target {n - reached[1]}/{n} · "
+            f"net {net:+.0f}R *(exit at the best TP reached; a trade with no TP counted as -1R)*")
+
+
 def status_block(snap: dict, trades: list[dict]) -> str:
     lines = [START, "## 📡 Live status", ""]
     lines.append(f"Last capture **{_ist(snap['captured_utc'])}** ({snap['captured_utc']})"
@@ -32,40 +44,29 @@ def status_block(snap: dict, trades: list[dict]) -> str:
 
     t = snap.get("trade")
     if t:
-        open_row = next((r for r in trades if r["status"] == "open"), {})
-        def lvl(n):
-            hit = " ✅" if open_row.get(f"tp{n}_hit") else ""
-            return f"{t.get(f'tp{n}', '')}{hit}"
+        live = trades[-1] if trades and trades[-1]["status"] == "open" else {}
+        hits = live.get("tp_hits", "").split()
+        lvl = lambda n: f"{t.get(f'tp{n}', '')}{' ✅' if f'TP{n}' in hits else ''}"  # noqa: E731
         lines += [f"**Active trade:** {t.get('signal', t['side'])} signalled {_ist(t.get('signal_time_utc'))}", "",
                   "| Side | Entry | SL | TP1 | TP2 | TP3 | Risk |", "|---|---|---|---|---|---|---|",
                   f"| {t['side']} | {t['entry']} | {t['sl']} | {lvl(1)} | {lvl(2)} | {lvl(3)} | {t['risk']} |", ""]
     if snap.get("mtf"):
-        lines.append("**Trend table:** " + " · ".join(f"{k} {_dot(v)}" for k, v in snap["mtf"].items()))
-        lines.append("")
+        lines += ["**Trend table:** " + " · ".join(f"{k} {_dot(v)}" for k, v in snap["mtf"].items()), ""]
     if snap.get("problems"):
-        lines.append("⚠️ Extraction issues on this capture: " + "; ".join(snap["problems"]))
-        lines.append("")
+        lines += ["⚠️ Notes on this capture: " + "; ".join(snap["problems"]), ""]
 
-    closed = [r for r in trades if r["status"] == "closed"]
     lines += ["## 📒 Trade log (latest 15)", "",
-              "| # | Signal | Signalled | Entry | SL | Result | R |", "|---|---|---|---|---|---|---|"]
+              "| # | Signal | Signalled | Entry | SL | Targets hit | Result | R |",
+              "|---|---|---|---|---|---|---|---|"]
     for r in reversed(trades[-15:]):
-        result = r["result"] or "open"
-        lines.append(f"| {r['id']} | {r['signal'] or r['side']} | {_ist(r['signal_time_utc'] or r['first_seen_utc'])} "
-                     f"| {r['entry']} | {r['sl']} | {result} | {r['r']} |")
-    lines.append("")
-    if closed:
-        n = len(closed)
-        tp1 = sum(1 for r in closed if r["tp1_hit"])
-        sl = sum(1 for r in closed if r["result"] == "SL")
-        net = sum(float(r["r"] or 0) for r in closed)
-        lines.append(f"**Scoreboard:** {n} closed trades · reached TP1 {tp1}/{n} ({tp1 / n:.0%}) · "
-                     f"stopped out {sl}/{n} · net {net:+.2f}R (exit at best target reached)")
-    else:
-        lines.append("**Scoreboard:** no closed trades yet.")
-    lines += ["", "Full analysis: [ANALYSIS.md](ANALYSIS.md) · data: [trades.csv](data/trades.csv), "
-              "[events.csv](data/events.csv)", "",
-              "![Latest chart capture (refreshed hourly)](latest.jpg)", END]
+        entry = r["entry"] or (f"~{r['price_est']}" if r["price_est"] else "")
+        lines.append(f"| {r['id']} | {r['signal']} | {_ist(r['signal_time_utc'])} | {entry} | {r['sl']} "
+                     f"| {r['tp_hits'] or '-'} | {r['result']} | {r['r']} |")
+    lines += ["", scoreboard(trades), "",
+              "Entries marked ~ are estimated from the chart; exact levels are only shown for the live trade.", "",
+              "Full analysis: [ANALYSIS.md](ANALYSIS.md) · data: [trades.csv](data/trades.csv), "
+              "[events.csv](data/events.csv), [levels.csv](data/levels.csv)", "",
+              "![Latest chart capture](latest.jpg)", END]
     return "\n".join(lines)
 
 

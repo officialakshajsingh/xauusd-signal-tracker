@@ -133,7 +133,7 @@ def main() -> int:
     frame = Image.open(frame_path).convert("RGB")
     snap = extract.extract(frame, now)
     snap["source"] = source
-    trades, _ = store.update(args.data_dir, snap)
+    trades = store.update(args.data_dir, snap)
     report.write_readme(args.readme, snap, trades)
     if not args.frame:
         _set_status(args.data_dir, now, None)

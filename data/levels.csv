@@ -1,0 +1,2 @@
+signal,signal_time_utc,side,entry,sl,tp1,tp2,tp3,risk,first_seen_utc,last_seen_utc,captures,max_price,min_price,trend_at_first_seen,mtf_at_first_seen
+Buy+,2026-09-18T05:37Z,Buy,4370.93,4362.9143,4378.9457,4386.9614,4394.9772,8.0157,2026-09-18T06:07:46Z,2026-09-18T07:53:31Z,2,4396.26,4385.85,Bullish,1m+ 3m+ 5m+ 15m+ 30m+ 1H+ 2H+ 4H+ 8H+ D-

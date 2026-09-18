@@ -1,25 +1,33 @@
-"""Turn each extracted snapshot into the running trade log.
+"""Turn each capture into the running trade log.
+
+The chart keeps about 4 hours of history, so an hourly capture sees every Buy/Sell/TP marker since
+the previous one. Markers are merged into events.csv, and trades.csv is rebuilt from them each time:
+a trade runs from one Buy/Sell signal to the next, and its result is the best TP marker printed in
+between. The exact entry/SL/TP levels are only drawn for the live trade, so levels.csv keeps every
+set seen and the rebuild attaches them to the matching signal.
 
 data/snapshots/YYYY-MM.jsonl  every capture, as extracted (minus the marker list)
-data/trades.csv               one row per trade the indicator opened, with its outcome
 data/events.csv               every Buy/Sell/TP marker seen on the chart, de-duplicated
+data/levels.csv               exact levels of the live trade at each capture, one row per trade
+data/trades.csv               rebuilt trade list with results
 data/latest.json              the most recent snapshot in full
 """
 from __future__ import annotations
 
 import csv
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
-TRADE_FIELDS = [
-    "id", "side", "signal", "signal_time_utc", "entry", "sl", "tp1", "tp2", "tp3", "risk",
-    "first_seen_utc", "last_seen_utc", "snapshots", "status", "max_price", "min_price",
-    "tp1_hit", "tp2_hit", "tp3_hit", "sl_hit", "closed_utc", "exit_price", "result", "r",
-    "trend_at_open", "mtf_at_open",
-]
 EVENT_FIELDS = ["label", "time_utc", "price_est", "first_seen_utc"]
-SAME_EVENT_MINUTES = 3  # marker times are estimated from pixel position, so allow some drift
+LEVEL_FIELDS = ["signal", "signal_time_utc", "side", "entry", "sl", "tp1", "tp2", "tp3", "risk",
+                "first_seen_utc", "last_seen_utc", "captures", "max_price", "min_price",
+                "trend_at_first_seen", "mtf_at_first_seen"]
+TRADE_FIELDS = ["id", "signal", "side", "signal_time_utc", "price_est", "entry", "sl", "tp1", "tp2", "tp3",
+                "risk", "tp_hits", "status", "result", "r", "closed_by_utc", "trend", "mtf"]
+FMT = "%Y-%m-%dT%H:%MZ"
+SAME_EVENT = timedelta(minutes=3)      # marker times are estimated from pixel positions
+DUPLICATE_SIGNAL = timedelta(minutes=8)  # signals alternate; two same-side ones this close are one marker
 
 
 def _read(path: Path) -> list[dict]:
@@ -36,115 +44,104 @@ def _write(path: Path, fields: list[str], rows: list[dict]) -> None:
         w.writerows(rows)
 
 
-def _num(v) -> float | None:
-    return None if v in ("", None) else float(v)
+def _t(s: str) -> datetime:
+    return datetime.strptime(s, FMT)
 
 
 def _mtf_compact(snap: dict) -> str:
     return " ".join(f"{k}{'+' if v in ('Bullish', 'Buy') else '-'}" for k, v in snap.get("mtf", {}).items())
 
 
-def _close(row: dict, now: str, exit_price: float | None) -> None:
-    row["status"] = "closed"
-    row["closed_utc"] = now
-    entry, risk = float(row["entry"]), float(row["risk"])
-    best = max((n for n in (1, 2, 3) if row[f"tp{n}_hit"]), default=0)
-    if best:
-        row["result"], r = f"TP{best}", float(best)
-    elif row["sl_hit"]:
-        row["result"], r = "SL", -1.0
-    else:
-        # the indicator flipped to a new signal before any target or the stop was reached
-        row["result"] = "Reversed"
-        r = 0.0
-        if exit_price is not None and risk:
-            move = exit_price - entry if row["side"] == "Buy" else entry - exit_price
-            r = max(move / risk, -1.0)
-    row["exit_price"] = "" if exit_price is None else exit_price
-    row["r"] = round(r, 2)
-
-
-def _update_trades(trades: list[dict], snap: dict) -> None:
-    now, price, t = snap["captured_utc"], snap.get("price"), snap.get("trade")
-    if not t:
-        return
-    current = next((r for r in trades if r["side"] == t["side"]
-                    and abs(float(r["entry"]) - t["entry"]) < 0.005
-                    and abs(float(r["sl"]) - t["sl"]) < 0.005), None)
-    if current is None:
-        for r in trades:
-            if r["status"] == "open":
-                _close(r, now, exit_price=t["entry"])
-        current = dict.fromkeys(TRADE_FIELDS, "") | {
-            "id": len(trades) + 1, "side": t["side"], "signal": t.get("signal", ""),
-            "signal_time_utc": t.get("signal_time_utc") or "", "entry": t["entry"], "sl": t["sl"],
-            "tp1": t["tp1"], "tp2": t.get("tp2", ""), "tp3": t.get("tp3", ""), "risk": t["risk"],
-            "first_seen_utc": now, "snapshots": 0, "status": "open",
-            "max_price": price or "", "min_price": price or "",
-            "tp1_hit": "", "tp2_hit": "", "tp3_hit": "", "sl_hit": "",
-            "trend_at_open": snap.get("trend") or "", "mtf_at_open": _mtf_compact(snap),
-        }
-        trades.append(current)
-
-    current["last_seen_utc"] = now
-    current["snapshots"] = int(current["snapshots"]) + 1
-    for key in ("tp2", "tp3", "signal", "signal_time_utc"):  # OCR sometimes misses a label on one capture
-        if not current.get(key) and t.get(key):
-            current[key] = t[key]
-    if price:
-        current["max_price"] = max(float(current["max_price"] or price), price)
-        current["min_price"] = min(float(current["min_price"] or price), price)
-
-    # targets reached: TP markers drawn after the signal, or a captured price beyond the level
-    best_marker = max((int(m[2]) for m in t.get("tp_markers_since_signal", [])), default=0)
-    buy = t["side"] == "Buy"
-    best = _num(current["max_price"] if buy else current["min_price"])
-    worst = _num(current["min_price"] if buy else current["max_price"])
-    for n in (1, 2, 3):
-        level = _num(current[f"tp{n}"])
-        if level is None:
-            continue
-        crossed = best is not None and (best >= level if buy else best <= level)
-        if n <= best_marker or crossed:
-            current[f"tp{n}_hit"] = "yes"
-    sl = float(current["sl"])
-    if worst is not None and (worst <= sl if buy else worst >= sl):
-        current["sl_hit"] = "yes"
-
-
 def _merge_events(events: list[dict], snap: dict) -> None:
-    fmt = "%Y-%m-%dT%H:%MZ"
     for mk in snap.get("markers", []):
         if not mk.get("time_utc"):
             continue
-        t = datetime.strptime(mk["time_utc"], fmt)
-        if any(e["label"] == mk["label"]
-               and abs((datetime.strptime(e["time_utc"], fmt) - t).total_seconds()) <= SAME_EVENT_MINUTES * 60
-               for e in events):
+        t = _t(mk["time_utc"])
+        if any(e["label"] == mk["label"] and abs(_t(e["time_utc"]) - t) <= SAME_EVENT for e in events):
             continue
         events.append({"label": mk["label"], "time_utc": mk["time_utc"],
                        "price_est": mk.get("price_est", ""), "first_seen_utc": snap["captured_utc"]})
     events.sort(key=lambda e: e["time_utc"])
 
 
+def _merge_levels(levels: list[dict], snap: dict) -> None:
+    t, price, now = snap.get("trade"), snap.get("price"), snap["captured_utc"]
+    if not t:
+        return
+    row = next((r for r in levels if r["side"] == t["side"] and abs(float(r["entry"]) - t["entry"]) < 0.005
+                and abs(float(r["sl"]) - t["sl"]) < 0.005), None)
+    if row is None:
+        row = dict.fromkeys(LEVEL_FIELDS, "") | {
+            "side": t["side"], "entry": t["entry"], "sl": t["sl"], "risk": t["risk"], "first_seen_utc": now,
+            "captures": 0, "trend_at_first_seen": snap.get("trend") or "", "mtf_at_first_seen": _mtf_compact(snap)}
+        levels.append(row)
+    for key in ("signal", "signal_time_utc", "tp1", "tp2", "tp3"):
+        if not row.get(key) and t.get(key):  # OCR can miss a label on one capture and read it on the next
+            row[key] = t[key]
+    row["last_seen_utc"] = now
+    row["captures"] = int(row["captures"] or 0) + 1
+    if price:
+        row["max_price"] = max(float(row["max_price"] or price), price)
+        row["min_price"] = min(float(row["min_price"] or price), price)
+
+
+def _rebuild_trades(events: list[dict], levels: list[dict]) -> list[dict]:
+    signals: list[dict] = []
+    for e in events:
+        if not e["label"].startswith(("Buy", "Sell")):
+            continue
+        side = "Buy" if e["label"].startswith("Buy") else "Sell"
+        if signals and signals[-1]["side"] == side and _t(e["time_utc"]) - _t(signals[-1]["time_utc"]) <= DUPLICATE_SIGNAL:
+            continue
+        signals.append({**e, "side": side})
+
+    trades = []
+    for i, s in enumerate(signals):
+        start = _t(s["time_utc"])
+        end = _t(signals[i + 1]["time_utc"]) if i + 1 < len(signals) else None
+        hits = sorted({e["label"] for e in events if e["label"].startswith("TP")
+                       and start < _t(e["time_utc"]) and (end is None or _t(e["time_utc"]) < end)})
+        best = max((int(h[2]) for h in hits), default=0)
+        lv = next((r for r in levels if r["side"] == s["side"] and r["signal_time_utc"]
+                   and abs(_t(r["signal_time_utc"]) - start) <= SAME_EVENT), {})
+        if end is None:
+            status, result, r = "open", (f"TP{best} so far" if best else "running"), ""
+        elif best:
+            status, result, r = "closed", f"TP{best}", best
+        else:
+            # reversed before TP1; the stop may or may not have been hit first, so count the worst case
+            status, result, r = "closed", "No TP", -1
+        trades.append({
+            "id": i + 1, "signal": s["label"], "side": s["side"], "signal_time_utc": s["time_utc"],
+            "price_est": s["price_est"], "entry": lv.get("entry", ""), "sl": lv.get("sl", ""),
+            "tp1": lv.get("tp1", ""), "tp2": lv.get("tp2", ""), "tp3": lv.get("tp3", ""), "risk": lv.get("risk", ""),
+            "tp_hits": " ".join(f"TP{n}" for n in range(1, best + 1)), "status": status, "result": result, "r": r,
+            "closed_by_utc": signals[i + 1]["time_utc"] if end else "",
+            "trend": lv.get("trend_at_first_seen", ""), "mtf": lv.get("mtf_at_first_seen", ""),
+        })
+    return trades
+
+
 def read_trades(data_dir: Path) -> list[dict]:
     return _read(data_dir / "trades.csv")
 
 
-def update(data_dir: Path, snap: dict) -> tuple[list[dict], list[dict]]:
+def update(data_dir: Path, snap: dict) -> list[dict]:
     data_dir.mkdir(parents=True, exist_ok=True)
     (data_dir / "snapshots").mkdir(exist_ok=True)
-    month = snap["captured_utc"][:7]
     lean = {k: v for k, v in snap.items() if k != "markers"}
-    with (data_dir / "snapshots" / f"{month}.jsonl").open("a", encoding="utf-8") as f:
+    with (data_dir / "snapshots" / f"{snap['captured_utc'][:7]}.jsonl").open("a", encoding="utf-8") as f:
         f.write(json.dumps(lean) + "\n")
     (data_dir / "latest.json").write_text(json.dumps(snap, indent=1), encoding="utf-8")
-
-    trades = _read(data_dir / "trades.csv")
-    _update_trades(trades, snap)
-    _write(data_dir / "trades.csv", TRADE_FIELDS, trades)
 
     events = _read(data_dir / "events.csv")
     _merge_events(events, snap)
     _write(data_dir / "events.csv", EVENT_FIELDS, events)
-    return trades, events
+
+    levels = _read(data_dir / "levels.csv")
+    _merge_levels(levels, snap)
+    _write(data_dir / "levels.csv", LEVEL_FIELDS, levels)
+
+    trades = _rebuild_trades(events, levels)
+    _write(data_dir / "trades.csv", TRADE_FIELDS, trades)
+    return trades
