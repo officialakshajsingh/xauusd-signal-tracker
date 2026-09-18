@@ -88,6 +88,9 @@ def _update_trades(trades: list[dict], snap: dict) -> None:
 
     current["last_seen_utc"] = now
     current["snapshots"] = int(current["snapshots"]) + 1
+    for key in ("tp2", "tp3", "signal", "signal_time_utc"):  # OCR sometimes misses a label on one capture
+        if not current.get(key) and t.get(key):
+            current[key] = t[key]
     if price:
         current["max_price"] = max(float(current["max_price"] or price), price)
         current["min_price"] = min(float(current["min_price"] or price), price)

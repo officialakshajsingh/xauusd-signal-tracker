@@ -1,7 +1,6 @@
 """Rewrite the live-status block in README.md after every capture."""
 from __future__ import annotations
 
-import os
 import re
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -22,7 +21,6 @@ def _dot(v: str) -> str:
 
 
 def status_block(snap: dict, trades: list[dict]) -> str:
-    repo = os.environ.get("GITHUB_REPOSITORY", "officialakshajsingh/xauusd-signal-tracker")
     lines = [START, "## 📡 Live status", ""]
     lines.append(f"Last capture **{_ist(snap['captured_utc'])}** ({snap['captured_utc']})"
                  + (f" · chart clock {snap['chart_clock']}" if snap.get("chart_clock") else ""))
@@ -67,7 +65,7 @@ def status_block(snap: dict, trades: list[dict]) -> str:
         lines.append("**Scoreboard:** no closed trades yet.")
     lines += ["", "Full analysis: [ANALYSIS.md](ANALYSIS.md) · data: [trades.csv](data/trades.csv), "
               "[events.csv](data/events.csv)", "",
-              f"![Latest chart capture](https://raw.githubusercontent.com/{repo}/frames/latest.jpg)", END]
+              "![Latest chart capture (refreshed hourly)](latest.jpg)", END]
     return "\n".join(lines)
 
 

@@ -7,10 +7,12 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import subprocess
 import sys
 import tempfile
+import time
+import urllib.parse
+import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -23,42 +25,58 @@ VIDEO_URL = "https://www.youtube.com/watch?v=3H4IVQejlDE"
 CHANNEL_LIVE_URL = "https://www.youtube.com/@DTradingTips/live"
 
 
-def _stream_url() -> tuple[str, str]:
+ATTEMPTS = 3  # YouTube's bot check is intermittent from cloud IPs; a retry usually gets through
+
+
+def _stream_info() -> dict:
     from yt_dlp import YoutubeDL
 
     opts = {"quiet": True, "no_warnings": True,
             "format": "270/bestvideo[height<=1080][protocol^=m3u8]/best[height<=1080]",
-            # YouTube's player challenges need a JS runtime; runners ship Node, deno is yt-dlp's default
+            # YouTube's player challenges need a JS runtime; cloud images ship Node, deno is yt-dlp's default
             "js_runtimes": {"deno": {}, "node": {}}}
-    # YouTube asks datacenter IPs (like Actions runners) to sign in, so the workflow passes the
-    # cookies.txt of a throwaway account through the YT_COOKIES secret
-    if cookies := os.environ.get("YT_COOKIES", "").strip():
-        cookie_file = Path(tempfile.mkdtemp()) / "cookies.txt"
-        cookie_file.write_text(cookies + "\n", encoding="utf-8")
-        opts["cookiefile"] = str(cookie_file)
     errors = []
-    for page in (VIDEO_URL, CHANNEL_LIVE_URL):
-        try:
-            with YoutubeDL(opts) as ydl:
-                info = ydl.extract_info(page, download=False)
-        except Exception as e:  # noqa: BLE001 - try the next source
-            errors.append(f"{page}: {e}")
-            continue
-        title = info.get("title") or ""
-        if info.get("is_live") and ("XAU" in title.upper() or "GOLD" in title.upper()):
-            return info["url"], f"{info.get('id')} | {title}"
-        errors.append(f"{page}: not a live gold stream ({info.get('live_status')}: {title})")
-    raise RuntimeError("no live XAU/USD stream found:\n" + "\n".join(errors))
+    for attempt in range(ATTEMPTS):
+        for page in (VIDEO_URL, CHANNEL_LIVE_URL):
+            try:
+                with YoutubeDL(opts) as ydl:
+                    info = ydl.extract_info(page, download=False)
+            except Exception as e:  # noqa: BLE001 - try the next source
+                errors.append(f"{page}: {e}")
+                continue
+            title = info.get("title") or ""
+            if info.get("is_live") and ("XAU" in title.upper() or "GOLD" in title.upper()):
+                return info
+            errors.append(f"{page}: not a live gold stream ({info.get('live_status')}: {title})")
+        time.sleep(5 * (attempt + 1))
+    raise RuntimeError("no live XAU/USD stream found:\n" + "\n".join(errors[-4:]))
+
+
+def _fetch(url: str, headers: dict) -> bytes:
+    req = urllib.request.Request(url, headers=headers)
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        return resp.read()
 
 
 def grab_frame(dest: Path) -> str:
+    """Download the newest HLS segment ourselves and decode it locally.
+
+    Letting ffmpeg open the stream URL directly crashes the static ffmpeg build on some Linux
+    images (its DNS lookups segfault), and a local file is all it needs anyway.
+    """
     import imageio_ffmpeg
 
-    url, source = _stream_url()
+    info = _stream_info()
+    headers = {k: v for k, v in (info.get("http_headers") or {}).items() if k.lower() != "accept-encoding"}
+    playlist = _fetch(info["url"], headers).decode("utf-8", "replace")
+    segments = [line for line in playlist.splitlines() if line and not line.startswith("#")]
+    if not segments:
+        raise RuntimeError("stream playlist has no segments")
+    segment = dest.with_suffix(".ts")
+    segment.write_bytes(_fetch(urllib.parse.urljoin(info["url"], segments[-1]), headers))
     subprocess.run([imageio_ffmpeg.get_ffmpeg_exe(), "-hide_banner", "-loglevel", "error",
-                    "-live_start_index", "-1", "-i", url, "-frames:v", "1", "-y", str(dest)],
-                   check=True, timeout=120)
-    return source
+                    "-i", str(segment), "-frames:v", "1", "-y", str(dest)], check=True, timeout=60)
+    return f"{info.get('id')} | {info.get('title')}"
 
 
 def _set_status(data_dir: Path, now: datetime, error: str | None) -> None:
