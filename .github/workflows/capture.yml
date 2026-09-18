@@ -1,0 +1,69 @@
+name: capture
+
+on:
+  schedule:
+    # hourly on weekdays (UTC); the chart keeps ~4 hours of history, so every trade is seen
+    - cron: "7 * * * 1-5"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: capture
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install
+        run: |
+          pip install -r requirements.txt
+          # rapidocr pulls in the GUI build of OpenCV, which needs libGL; the headless build doesn't
+          pip uninstall -y opencv-python
+          pip install opencv-python-headless
+
+      - name: Capture, read, commit and push
+        env:
+          YT_COOKIES: ${{ secrets.YT_COOKIES }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          python -m tracker.run
+
+      - name: Open or close the "capture failing" issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          [ -f data/capture_status.json ] || exit 0
+          fails=$(jq -r '.consecutive_failures // 0' data/capture_status.json)
+          open=$(gh issue list --label capture-failing --state open --json number -q '.[0].number')
+          if [ "$fails" -ge 3 ] && [ -z "$open" ]; then
+            gh label create capture-failing --color d73a4a --force > /dev/null
+            {
+              echo "The last $fails hourly captures failed. Latest error:"
+              echo
+              echo '```'
+              jq -r '.last_error' data/capture_status.json
+              echo '```'
+              echo
+              echo "If it says **Sign in to confirm you're not a bot**, the YouTube cookies have expired:"
+              echo "export a fresh cookies.txt from the throwaway account (see README) and paste it into"
+              echo "Settings > Secrets and variables > Actions > **YT_COOKIES**. This issue closes itself"
+              echo "on the next successful capture."
+            } > body.md
+            gh issue create --label capture-failing --title "Captures failing: check YT_COOKIES" --body-file body.md
+          elif [ "$fails" -eq 0 ] && [ -n "$open" ]; then
+            gh issue close "$open" --comment "Captures are working again."
+          fi

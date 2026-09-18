@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -35,6 +36,12 @@ def _stream_info() -> dict:
             "format": "270/bestvideo[height<=1080][protocol^=m3u8]/best[height<=1080]",
             # YouTube's player challenges need a JS runtime; cloud images ship Node, deno is yt-dlp's default
             "js_runtimes": {"deno": {}, "node": {}}}
+    # YouTube asks GitHub's runners to sign in, so the workflow passes the cookies.txt of a
+    # throwaway account through the YT_COOKIES secret
+    if cookies := os.environ.get("YT_COOKIES", "").strip():
+        cookie_file = Path(tempfile.mkdtemp()) / "cookies.txt"
+        cookie_file.write_text(cookies + "\n", encoding="utf-8")
+        opts["cookiefile"] = str(cookie_file)
     errors = []
     for attempt in range(ATTEMPTS):
         for page in (VIDEO_URL, CHANNEL_LIVE_URL):

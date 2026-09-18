@@ -4,18 +4,27 @@ Records every trade the [Daily Trading Tips gold livestream](https://www.youtube
 signals on its 1-minute chart, tracks whether each one reaches its targets or its stop, and keeps a
 running professional analysis of the signals.
 
-**How it works.** A Claude Code cloud routine runs every hour on weekdays, on Anthropic's cloud:
+**How it works.**
 
-1. **Capture.** [`tracker.run`](tracker/run.py) grabs a 1080p frame of the stream and reads it with OCR:
-   the live trade's entry, stop loss and TP1-TP3, every Buy/Sell/TP marker on the chart, the
-   multi-timeframe trend table and the price. The chart keeps about 4 hours of history, so each
-   capture also sees every trade since the previous one. The trade log in [`data/`](data) is rebuilt
-   from those markers and this page is updated.
-2. **Analysis.** Claude checks the capture against the chart image, writes an hourly entry in the
-   day's file in [`reports/`](reports) and updates the scoreboard and verdict in [ANALYSIS.md](ANALYSIS.md).
+1. **Capture, every hour on weekdays.** A GitHub Actions job ([capture.yml](.github/workflows/capture.yml))
+   runs [`tracker.run`](tracker/run.py): it grabs a 1080p frame of the stream and reads it with OCR (the live
+   trade's entry, stop loss and TP1-TP3, every Buy/Sell/TP marker on the chart, the multi-timeframe trend
+   table and the price). The chart keeps about 4 hours of history, so each capture also sees every trade
+   since the previous one. The trade log in [`data/`](data) is rebuilt from those markers and this page is
+   updated.
+2. **Analysis, every 4 hours on weekdays.** A Claude Code cloud routine checks the data against the latest
+   chart image, writes entries in the day's file in [`reports/`](reports) and updates the scoreboard and
+   verdict in [ANALYSIS.md](ANALYSIS.md).
 
-GitHub Actions can't do the capture: YouTube answers GitHub's servers with "Sign in to confirm you're
-not a bot", while Anthropic's cloud gets through.
+**YouTube cookies.** YouTube asks GitHub's servers to sign in, so captures use the cookies of a
+*throwaway* Google account, stored in the `YT_COOKIES` Actions secret. They expire now and then; after
+3 failed captures in a row the workflow opens a `capture-failing` issue (GitHub emails you). To refresh them:
+
+1. Open a private/incognito window and sign in to YouTube with the throwaway account.
+2. In that same tab go to `https://www.youtube.com/robots.txt` and export the youtube.com cookies in
+   Netscape `cookies.txt` format (for example with the open-source "Get cookies.txt LOCALLY" extension).
+3. Close the private window straight away, so YouTube doesn't rotate the exported session.
+4. Paste the whole file into **Settings > Secrets and variables > Actions > YT_COOKIES**.
 
 Chart times on the stream are UTC+4; everything here is stored in UTC and shown in IST.
 This is a record of someone else's signals for study, not trading advice.
