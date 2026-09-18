@@ -1,0 +1,77 @@
+{
+ "captured_utc": "2026-09-18T07:45:45Z",
+ "problems": [],
+ "header_price": 4395.38,
+ "day_change_pct": 1.25,
+ "chart_tz_minutes": 240,
+ "chart_clock": "11:45:46",
+ "price": 4395.38,
+ "candle_countdown": "00:13",
+ "position": "Buy",
+ "trend": "Bullish",
+ "mtf": {
+  "1m": "Bullish",
+  "3m": "Bullish",
+  "5m": "Bullish",
+  "15m": "Bullish",
+  "30m": "Bullish",
+  "1H": "Bullish",
+  "2H": "Bullish",
+  "4H": "Bullish",
+  "8H": "Bullish",
+  "D": "Bearish"
+ },
+ "trade": {
+  "side": "Buy",
+  "tp2": 4386.9614,
+  "tp1": 4378.9457,
+  "entry": 4370.93,
+  "sl": 4362.9143,
+  "risk": 8.0157,
+  "signal": "Buy+",
+  "signal_time_utc": "2026-09-18T05:37Z",
+  "tp_markers_since_signal": [
+   "TP2",
+   "TP3"
+  ]
+ },
+ "markers": [
+  {
+   "label": "TP1",
+   "x": 74,
+   "time_utc": "2026-09-18T04:42Z",
+   "price_est": 4365.97
+  },
+  {
+   "label": "TP2",
+   "x": 168,
+   "time_utc": "2026-09-18T05:00Z",
+   "price_est": 4369.72
+  },
+  {
+   "label": "Sell",
+   "x": 337,
+   "time_utc": "2026-09-18T05:30Z",
+   "price_est": 4367.53
+  },
+  {
+   "label": "Buy+",
+   "x": 375,
+   "time_utc": "2026-09-18T05:37Z",
+   "price_est": 4361.34
+  },
+  {
+   "label": "TP2",
+   "x": 530,
+   "time_utc": "2026-09-18T06:06Z",
+   "price_est": 4389.37
+  },
+  {
+   "label": "TP3",
+   "x": 715,
+   "time_utc": "2026-09-18T06:39Z",
+   "price_est": 4398.15
+  }
+ ],
+ "source": "3H4IVQejlDE | \ud83d\udd34 XAU/USD Real-Time 1 Minute Chart (Educational) - Live GOLD Market Data 24/7 2026-09-18 13:15"
+}

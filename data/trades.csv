@@ -1,0 +1,2 @@
+id,side,signal,signal_time_utc,entry,sl,tp1,tp2,tp3,risk,first_seen_utc,last_seen_utc,snapshots,status,max_price,min_price,tp1_hit,tp2_hit,tp3_hit,sl_hit,closed_utc,exit_price,result,r,trend_at_open,mtf_at_open
+1,Buy,Buy+,2026-09-18T05:37Z,4370.93,4362.9143,4378.9457,4386.9614,,8.0157,2026-09-18T07:45:45Z,2026-09-18T07:45:45Z,1,open,4395.38,4395.38,yes,yes,,,,,,,Bullish,1m+ 3m+ 5m+ 15m+ 30m+ 1H+ 2H+ 4H+ 8H+ D-
