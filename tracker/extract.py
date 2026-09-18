@@ -233,9 +233,15 @@ def extract(frame: Image.Image, captured_utc: datetime) -> dict:
             name = m.group(1).upper() if m.group(1).lower() != "entry" else "ENTRY"
             levels[name.lower()] = float(m.group(2))
             used.add(i)
-    if {"entry", "sl", "tp1"} <= levels.keys():
-        side = "Buy" if levels["tp1"] > levels["entry"] else "Sell"
-        out["trade"] = {"side": side, **levels, "risk": round(abs(levels["entry"] - levels["sl"]), 4)}
+    if {"entry", "sl"} <= levels.keys():
+        risk = abs(levels["entry"] - levels["sl"])
+        side = "Buy" if levels["entry"] > levels["sl"] else "Sell"
+        # candles sometimes cover a TP label; the indicator always sets TPn at exactly n x risk
+        for n in (1, 2, 3):
+            if f"tp{n}" not in levels and risk:
+                levels[f"tp{n}"] = round(levels["entry"] + (n if side == "Buy" else -n) * risk, 4)
+                out["problems"].append(f"TP{n} label hidden; derived from entry and SL")
+        out["trade"] = {"side": side, **levels, "risk": round(risk, 4)}
     else:
         out["trade"] = None
         out["problems"].append("trade levels not found")

@@ -4,3 +4,4 @@ __pycache__/
 *.pyc
 frame.jpg
 frames-repo/
+_frames/
