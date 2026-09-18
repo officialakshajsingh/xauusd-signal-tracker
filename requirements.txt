@@ -1,0 +1,5 @@
+yt-dlp
+imageio-ffmpeg
+pillow
+numpy
+rapidocr_onnxruntime

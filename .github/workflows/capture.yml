@@ -1,0 +1,78 @@
+name: capture
+
+on:
+  schedule:
+    # every 10 minutes, offset from :00 because GitHub delays top-of-the-hour schedules the most
+    - cron: "3,13,23,33,43,53 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: capture
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install
+        run: |
+          pip install -r requirements.txt
+          # rapidocr pulls in the GUI build of OpenCV, which needs libGL; the headless build doesn't
+          pip uninstall -y opencv-python
+          pip install opencv-python-headless
+
+      - name: Capture, read and log
+        run: python -m tracker.main --frame-out frame.jpg
+
+      - name: Bring in Claude's latest analysis
+        run: |
+          if git fetch --depth=1 origin claude/analysis 2>/dev/null; then
+            git checkout FETCH_HEAD -- ANALYSIS.md 2>/dev/null || true
+            git checkout FETCH_HEAD -- reports 2>/dev/null || true
+          fi
+
+      - name: Commit data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data README.md
+          git add ANALYSIS.md 2>/dev/null || true
+          git add reports 2>/dev/null || true
+          git diff --cached --quiet && exit 0
+          git commit -q -m "capture $(date -u +%Y-%m-%dT%H:%MZ)"
+          for i in 1 2 3; do
+            git pull -q --rebase origin main && git push -q origin HEAD:main && exit 0
+            sleep 5
+          done
+          exit 1
+
+      - name: Publish frame to the frames branch
+        run: |
+          [ -f frame.jpg ] || exit 0
+          stamp=$(date -u +%Y%m%d_%H%M)
+          remote="https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
+          git clone -q --depth 1 --branch frames "$remote" frames-repo 2>/dev/null \
+            || { git init -q frames-repo && git -C frames-repo remote add origin "$remote"; }
+          mkdir -p frames-repo/frames
+          cp frame.jpg frames-repo/latest.jpg
+          cp frame.jpg "frames-repo/frames/${stamp}.jpg"
+          # keep the newest 144 frames (about 24 hours); the branch is one commit, rewritten each run
+          ls -1 frames-repo/frames/*.jpg | sort | head -n -144 | xargs -r rm -f
+          cd frames-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -q --orphan next
+          git add -A
+          git commit -q -m "frames up to ${stamp}"
+          git push -q -f origin next:frames

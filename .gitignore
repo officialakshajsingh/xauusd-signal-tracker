@@ -1,0 +1,6 @@
+.venv/
+_test/
+__pycache__/
+*.pyc
+frame.jpg
+frames-repo/
