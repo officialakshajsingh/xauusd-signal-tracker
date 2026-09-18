@@ -16,5 +16,15 @@ running professional analysis of the signals.
 Chart times on the stream are UTC+4; everything here is stored in UTC and shown in IST.
 This is a record of someone else's signals for study, not trading advice.
 
+**YouTube cookies.** YouTube asks GitHub's servers to sign in, so captures use the cookies of a
+*throwaway* Google account, stored in the `YT_COOKIES` Actions secret. They expire every so often;
+when captures fail for an hour the workflow opens a `capture-failing` issue. To refresh them:
+
+1. Open a private/incognito window, sign in to YouTube with the throwaway account.
+2. In that same tab go to `https://www.youtube.com/robots.txt` and export the youtube.com cookies in
+   Netscape `cookies.txt` format (for example with the open-source "Get cookies.txt LOCALLY" extension).
+3. Close the private window straight away, so YouTube doesn't rotate the exported session.
+4. Paste the whole file into **Settings > Secrets and variables > Actions > YT_COOKIES**.
+
 <!-- STATUS:START -->
 <!-- STATUS:END -->

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -29,6 +30,12 @@ def _stream_url() -> tuple[str, str]:
             "format": "270/bestvideo[height<=1080][protocol^=m3u8]/best[height<=1080]",
             # YouTube's player challenges need a JS runtime; runners ship Node, deno is yt-dlp's default
             "js_runtimes": {"deno": {}, "node": {}}}
+    # YouTube asks datacenter IPs (like Actions runners) to sign in, so the workflow passes the
+    # cookies.txt of a throwaway account through the YT_COOKIES secret
+    if cookies := os.environ.get("YT_COOKIES", "").strip():
+        cookie_file = Path(tempfile.mkdtemp()) / "cookies.txt"
+        cookie_file.write_text(cookies + "\n", encoding="utf-8")
+        opts["cookiefile"] = str(cookie_file)
     errors = []
     for page in (VIDEO_URL, CHANNEL_LIVE_URL):
         try:
@@ -54,10 +61,26 @@ def grab_frame(dest: Path) -> str:
     return source
 
 
+def _set_status(data_dir: Path, now: datetime, error: str | None) -> None:
+    """data/capture_status.json drives the workflow's "capture failing" issue."""
+    path = data_dir / "capture_status.json"
+    status = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    stamp = f"{now:%Y-%m-%dT%H:%M:%SZ}"
+    if error:
+        status["consecutive_failures"] = status.get("consecutive_failures", 0) + 1
+        status["last_error"] = error
+        status["last_error_utc"] = stamp
+    else:
+        status["consecutive_failures"] = 0
+        status["last_ok_utc"] = stamp
+    path.write_text(json.dumps(status, indent=1) + "\n", encoding="utf-8")
+
+
 def _record_failure(args: argparse.Namespace, now: datetime, err: Exception) -> None:
     msg = f"{now:%Y-%m-%dT%H:%M:%SZ} {type(err).__name__}: {err}".replace("\n", " | ")[:600]
     print("capture failed:", msg, file=sys.stderr)
     args.data_dir.mkdir(parents=True, exist_ok=True)
+    _set_status(args.data_dir, now, msg)
     log = args.data_dir / "capture_errors.log"
     lines = (log.read_text(encoding="utf-8").splitlines() if log.exists() else [])[-199:] + [msg]
     log.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -94,6 +117,8 @@ def main() -> int:
     snap["source"] = source
     trades, _ = store.update(args.data_dir, snap)
     report.write_readme(args.readme, snap, trades)
+    if not args.frame:
+        _set_status(args.data_dir, now, None)
 
     if args.frame_out:
         chart = frame.resize(extract.FRAME_SIZE).crop(extract.CHART_BOX)

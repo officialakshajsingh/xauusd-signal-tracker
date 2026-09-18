@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
 
 concurrency:
   group: capture
@@ -33,6 +34,8 @@ jobs:
           pip install opencv-python-headless
 
       - name: Capture, read and log
+        env:
+          YT_COOKIES: ${{ secrets.YT_COOKIES }}
         run: python -m tracker.main --frame-out frame.jpg
 
       - name: Bring in Claude's latest analysis
@@ -56,6 +59,33 @@ jobs:
             sleep 5
           done
           exit 1
+
+      - name: Open or close the "capture failing" issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          [ -f data/capture_status.json ] || exit 0
+          fails=$(jq -r '.consecutive_failures // 0' data/capture_status.json)
+          open=$(gh issue list --label capture-failing --state open --json number -q '.[0].number')
+          if [ "$fails" -ge 6 ] && [ -z "$open" ]; then
+            gh label create capture-failing --color d73a4a --force > /dev/null
+            {
+              echo "The last $fails captures (about an hour) failed. Latest error:"
+              echo
+              echo '```'
+              jq -r '.last_error' data/capture_status.json
+              echo '```'
+              echo
+              echo "If it says **Sign in to confirm you're not a bot**, the YouTube cookies have expired:"
+              echo "export a fresh cookies.txt from the throwaway account (see README) and paste it into"
+              echo "Settings > Secrets and variables > Actions > **YT_COOKIES**. This issue closes itself"
+              echo "on the next successful capture."
+            } > body.md
+            gh issue create --label capture-failing --title "Captures failing: check YT_COOKIES" --body-file body.md
+          elif [ "$fails" -eq 0 ] && [ -n "$open" ]; then
+            gh issue close "$open" --comment "Captures are working again."
+          fi
 
       - name: Publish frame to the frames branch
         run: |
