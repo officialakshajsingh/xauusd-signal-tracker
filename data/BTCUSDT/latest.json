@@ -1,12 +1,10 @@
 {
- "captured_utc": "2026-09-19T07:44:45Z",
+ "captured_utc": "2026-09-19T07:47:03Z",
  "problems": [],
- "header_price": 81054.0,
- "day_change_pct": -0.21,
  "chart_tz_minutes": 240,
- "chart_clock": "11:44:49",
- "price": 81054.0,
- "candle_countdown": "00:10",
+ "chart_clock": "11:47:07",
+ "price": 81042.0,
+ "candle_countdown": "00:52",
  "position": "Sell",
  "trend": "Bearish",
  "mtf": {
@@ -18,7 +16,6 @@
   "1H": "Bullish",
   "2H": "Bullish",
   "4H": "Bullish",
-  "8H": "Bullish",
   "D": "Bearish"
  },
  "trade": {
@@ -30,7 +27,7 @@
   "tp3": 80999.7134,
   "risk": 50.0989,
   "signal": "Sell+",
-  "signal_time_utc": "2026-09-19T07:22Z",
+  "signal_time_utc": "2026-09-19T07:21Z",
   "tp_markers_since_signal": [
    "TP1",
    "TP2"
@@ -39,95 +36,95 @@
  "markers": [
   {
    "label": "Buy",
-   "x": 179,
+   "x": 162,
    "time_utc": "2026-09-19T05:01Z",
-   "price_est": 81001.96
+   "price_est": 81002.01
   },
   {
    "label": "TP1",
-   "x": 206,
+   "x": 190,
    "time_utc": "2026-09-19T05:06Z",
-   "price_est": 81127.46
+   "price_est": 81127.59
   },
   {
    "label": "Sell+",
-   "x": 240,
-   "time_utc": "2026-09-19T05:13Z",
-   "price_est": 81101.68
+   "x": 223,
+   "time_utc": "2026-09-19T05:12Z",
+   "price_est": 81101.71
   },
   {
    "label": "Buy",
-   "x": 304,
+   "x": 287,
    "time_utc": "2026-09-19T05:24Z",
-   "price_est": 81058.63
+   "price_est": 81058.56
   },
   {
    "label": "Sell",
-   "x": 363,
-   "time_utc": "2026-09-19T05:35Z",
-   "price_est": 81105.02
+   "x": 343,
+   "time_utc": "2026-09-19T05:34Z",
+   "price_est": 81105.04
   },
   {
    "label": "Buy",
-   "x": 659,
+   "x": 642,
    "time_utc": "2026-09-19T06:29Z",
-   "price_est": 80942.84
+   "price_est": 80942.85
   },
   {
    "label": "TP1",
-   "x": 682,
+   "x": 665,
    "time_utc": "2026-09-19T06:33Z",
    "price_est": 81075.28
   },
   {
    "label": "Sell+",
-   "x": 785,
+   "x": 769,
    "time_utc": "2026-09-19T06:52Z",
-   "price_est": 81093.48
+   "price_est": 81093.55
   },
   {
    "label": "Buy",
-   "x": 835,
+   "x": 818,
    "time_utc": "2026-09-19T07:01Z",
-   "price_est": 81046.99
+   "price_est": 81047.11
   },
   {
    "label": "TP1",
-   "x": 873,
+   "x": 857,
    "time_utc": "2026-09-19T07:08Z",
-   "price_est": 81130.6
+   "price_est": 81130.61
   },
   {
    "label": "TP2",
-   "x": 901,
+   "x": 885,
    "time_utc": "2026-09-19T07:13Z",
-   "price_est": 81184.17
+   "price_est": 81183.94
   },
   {
    "label": "TP3",
-   "x": 909,
+   "x": 895,
    "time_utc": "2026-09-19T07:15Z",
-   "price_est": 81213.41
+   "price_est": 81203.29
   },
   {
    "label": "Sell+",
-   "x": 945,
-   "time_utc": "2026-09-19T07:22Z",
-   "price_est": 81202.14
+   "x": 928,
+   "time_utc": "2026-09-19T07:21Z",
+   "price_est": 81202.26
   },
   {
    "label": "TP1",
-   "x": 966,
+   "x": 950,
    "time_utc": "2026-09-19T07:25Z",
    "price_est": 81074.0
   },
   {
    "label": "TP2",
-   "x": 1032,
+   "x": 1016,
    "time_utc": "2026-09-19T07:37Z",
    "price_est": 81022.07
   }
  ],
- "source": "3H4IVQejlDE | \ud83d\udd34 BTC/USDT Real-Time 1 Minute Chart (Educational) - Live BITCOIN Market Data 24/7 2026-09-19 13:14",
+ "source": "3H4IVQejlDE | \ud83d\udd34 BTC/USDT Real-Time 1 Minute Chart (Educational) - Live BITCOIN Market Data 24/7 2026-09-19 13:17",
  "symbol": "BTCUSDT"
 }

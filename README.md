@@ -73,17 +73,17 @@ Full analysis: [ANALYSIS.md](ANALYSIS.md) · data: [trades.csv](data/XAUUSD/trad
 <!-- STATUS:BTCUSDT:START -->
 ## 📡 Bitcoin (BTC/USDT): live status
 
-Last capture **19 Sep 13:14 IST** (2026-09-19T07:44:45Z) · chart clock 11:44:49
+Last capture **19 Sep 13:17 IST** (2026-09-19T07:47:03Z) · chart clock 11:47:07
 
-**Bitcoin (BTC/USDT): 81054.0** (-0.21% today) · Position **Sell** · Trend **Bearish**
+**Bitcoin (BTC/USDT): 81042.0** · Position **Sell** · Trend **Bearish**
 
-**Active trade:** Sell+ signalled 19 Sep 12:52 IST
+**Active trade:** Sell+ signalled 19 Sep 12:51 IST
 
 | Side | Entry | SL | TP1 | TP2 | TP3 | Risk |
 |---|---|---|---|---|---|---|
 | Sell | 81150.01 | 81200.1089 | 81099.9111 ✅ | 81049.8123 ✅ | 80999.7134 | 50.0989 |
 
-**Trend table:** 1m 🔴 · 3m 🔴 · 5m 🟢 · 15m 🟢 · 30m 🟢 · 1H 🟢 · 2H 🟢 · 4H 🟢 · 8H 🟢 · D 🔴
+**Trend table:** 1m 🔴 · 3m 🔴 · 5m 🟢 · 15m 🟢 · 30m 🟢 · 1H 🟢 · 2H 🟢 · 4H 🟢 · D 🔴
 
 ### 📒 Bitcoin (BTC/USDT) trade log (latest 15)
 
