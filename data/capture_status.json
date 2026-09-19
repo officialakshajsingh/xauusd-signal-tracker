@@ -1,6 +1,6 @@
 {
  "consecutive_failures": 0,
- "last_ok_utc": "2026-09-19T07:47:03Z",
+ "last_ok_utc": "2026-09-19T07:50:01Z",
  "last_error": "2026-09-18T08:14:35Z HTTPError: HTTP Error 403: Forbidden",
  "last_error_utc": "2026-09-18T08:14:35Z",
  "last_symbol": "BTCUSDT"
