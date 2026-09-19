@@ -12,6 +12,9 @@ running professional analysis of the signals.
    table and the price). The chart keeps about 4 hours of history, so each capture also sees every trade
    since the previous one. The trade log in [`data/`](data) is rebuilt from those markers and this page is
    updated.
+   **Weekends:** gold is closed and the same stream switches to **BTC/USDT**. A scheduled task on the
+   owner's PC runs the same `tracker.run` every 10 minutes on Saturday and Sunday. Each instrument has
+   its own folder (`data/XAUUSD/`, `data/BTCUSDT/`) and its own section below.
 2. **Analysis, every 4 hours on weekdays.** A Claude Code cloud routine checks the data against the latest
    chart image, writes entries in the day's file in [`reports/`](reports) and updates the scoreboard and
    verdict in [ANALYSIS.md](ANALYSIS.md).
@@ -31,8 +34,8 @@ This is a record of someone else's signals for study, not trading advice.
 
 Re-process a saved frame locally: `python -m tracker.main --frame some.png --data-dir /tmp/d`.
 
-<!-- STATUS:START -->
-## 📡 Live status
+<!-- STATUS:XAUUSD:START -->
+## 📡 Gold (XAU/USD): live status
 
 Last capture **18 Sep 13:23 IST** (2026-09-18T07:53:31Z) · chart clock 11:53:32
 
@@ -46,9 +49,9 @@ Last capture **18 Sep 13:23 IST** (2026-09-18T07:53:31Z) · chart clock 11:53:32
 
 **Trend table:** 1m 🟢 · 3m 🟢 · 5m 🟢 · 15m 🟢 · 30m 🟢 · 1H 🟢 · 2H 🟢 · 4H 🟢 · 8H 🟢 · D 🔴
 
-⚠️ Notes on this capture: TP3 label hidden; derived from entry and SL; newest capture failed at 08:14 UTC (HTTPError); showing the last good one
+⚠️ Notes on this capture: TP3 label hidden; derived from entry and SL
 
-## 📒 Trade log (latest 15)
+### 📒 Gold (XAU/USD) trade log (latest 15)
 
 | # | Signal | Signalled | Entry | SL | Targets hit | Result | R |
 |---|---|---|---|---|---|---|---|
@@ -62,7 +65,7 @@ Last capture **18 Sep 13:23 IST** (2026-09-18T07:53:31Z) · chart clock 11:53:32
 
 Entries marked ~ are estimated from the chart; exact levels are only shown for the live trade.
 
-Full analysis: [ANALYSIS.md](ANALYSIS.md) · data: [trades.csv](data/trades.csv), [events.csv](data/events.csv), [levels.csv](data/levels.csv)
+Full analysis: [ANALYSIS.md](ANALYSIS.md) · data: [trades.csv](data/XAUUSD/trades.csv), [events.csv](data/XAUUSD/events.csv), [levels.csv](data/XAUUSD/levels.csv)
 
-![Latest chart capture](latest.jpg)
-<!-- STATUS:END -->
+![Latest Gold (XAU/USD) chart capture](latest-XAUUSD.jpg)
+<!-- STATUS:XAUUSD:END -->

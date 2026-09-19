@@ -1,12 +1,14 @@
-"""The hourly capture the Claude cloud routine runs: capture once, then commit and push.
+"""One capture, then commit and push. Used by the GitHub Actions job and the Windows scheduled task.
 
     python -m tracker.run
 
-Saves the chart as latest.jpg (shown in the README) and in /tmp/frames for the analysis step,
-commits data/, README.md and latest.jpg to the current branch and pushes. Prints one summary line.
+Updates data/<SYMBOL>/ and README.md, refreshes latest-<SYMBOL>.jpg (on the first capture of each
+hour, to keep the repository small), keeps the frame in the frames folder for the analysis step,
+commits to the current branch and pushes. Prints one summary line.
 """
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
 import sys
@@ -15,10 +17,16 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 FRAMES = Path("/tmp/frames") if sys.platform != "win32" else Path("_frames")
+KEEP_FRAMES = 300
+NO_WINDOW = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+
+
+def _run(*cmd: str, timeout: int = 120) -> subprocess.CompletedProcess:
+    return subprocess.run(list(cmd), capture_output=True, text=True, timeout=timeout, creationflags=NO_WINDOW)
 
 
 def _git(*args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(["git", *args], capture_output=True, text=True)
+    return _run("git", *args)
 
 
 def _push(message: str, paths: list[str]) -> str:
@@ -43,18 +51,22 @@ def main() -> int:
     now = datetime.now(timezone.utc)
     FRAMES.mkdir(parents=True, exist_ok=True)
     frame = FRAMES / f"{now:%Y%m%d_%H%M}.jpg"
-    run = subprocess.run([sys.executable, "-m", "tracker.main", "--frame-out", str(frame)],
-                         capture_output=True, text=True, timeout=300)
+    run = _run(sys.executable, "-m", "tracker.main", "--frame-out", str(frame), timeout=300)
     failed = "capture failed" in run.stderr
     summary = (run.stderr if failed else run.stdout).strip().splitlines() or ["(no output)"]
 
     paths = ["data", "README.md"]
-    if frame.exists():
-        shutil.copy(frame, "latest.jpg")
-        paths.append("latest.jpg")
-    pushed = _push(f"capture {now:%Y-%m-%dT%H:%MZ}", paths)
-    print(f"{now:%H:%M}Z {'FAILED' if failed else 'ok'} | {pushed} | frame {frame if frame.exists() else '-'} "
-          f"| {summary[-1][:400]}")
+    status_file = Path("data/capture_status.json")
+    symbol = json.loads(status_file.read_text(encoding="utf-8")).get("last_symbol") if status_file.exists() else None
+    if frame.exists() and symbol and now.minute < 10:
+        shutil.copy(frame, f"latest-{symbol}.jpg")
+        paths.append(f"latest-{symbol}.jpg")
+    for old in sorted(FRAMES.glob("*.jpg"))[:-KEEP_FRAMES]:
+        old.unlink(missing_ok=True)
+
+    pushed = _push(f"capture {symbol or ''} {now:%Y-%m-%dT%H:%MZ}".replace("  ", " "), paths)
+    print(f"{now:%Y-%m-%d %H:%M}Z {'FAILED' if failed else 'ok'} {symbol or ''} | {pushed} | "
+          f"{summary[-1][:400]}", flush=True)
     return 0
 
 

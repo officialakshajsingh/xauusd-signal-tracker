@@ -1,12 +1,16 @@
-"""Rewrite the live-status block in README.md after every capture."""
+"""Rewrite an instrument's live-status block in README.md after every capture."""
 from __future__ import annotations
 
 import re
 from datetime import datetime, timedelta
 from pathlib import Path
 
-START, END = "<!-- STATUS:START -->", "<!-- STATUS:END -->"
 IST = timedelta(hours=5, minutes=30)
+NAMES = {"XAUUSD": "Gold (XAU/USD)", "BTCUSDT": "Bitcoin (BTC/USDT)"}
+
+
+def _markers(symbol: str) -> tuple[str, str]:
+    return f"<!-- STATUS:{symbol}:START -->", f"<!-- STATUS:{symbol}:END -->"
 
 
 def _ist(utc: str | None) -> str:
@@ -32,13 +36,15 @@ def scoreboard(trades: list[dict]) -> str:
             f"net {net:+.0f}R *(exit at the best TP reached; a trade with no TP counted as -1R)*")
 
 
-def status_block(snap: dict, trades: list[dict]) -> str:
-    lines = [START, "## 📡 Live status", ""]
+def status_block(snap: dict, trades: list[dict], symbol: str) -> str:
+    start, end = _markers(symbol)
+    name = NAMES.get(symbol, symbol)
+    lines = [start, f"## 📡 {name}: live status", ""]
     lines.append(f"Last capture **{_ist(snap['captured_utc'])}** ({snap['captured_utc']})"
                  + (f" · chart clock {snap['chart_clock']}" if snap.get("chart_clock") else ""))
     lines.append("")
     change = f" ({snap['day_change_pct']:+.2f}% today)" if "day_change_pct" in snap else ""
-    lines.append(f"**Gold (XAU/USD): {snap.get('price', '?')}**{change} · "
+    lines.append(f"**{name}: {snap.get('price', '?')}**{change} · "
                  f"Position **{snap.get('position') or '?'}** · Trend **{snap.get('trend') or '?'}**")
     lines.append("")
 
@@ -55,7 +61,7 @@ def status_block(snap: dict, trades: list[dict]) -> str:
     if snap.get("problems"):
         lines += ["⚠️ Notes on this capture: " + "; ".join(snap["problems"]), ""]
 
-    lines += ["## 📒 Trade log (latest 15)", "",
+    lines += [f"### 📒 {name} trade log (latest 15)", "",
               "| # | Signal | Signalled | Entry | SL | Targets hit | Result | R |",
               "|---|---|---|---|---|---|---|---|"]
     for r in reversed(trades[-15:]):
@@ -64,15 +70,16 @@ def status_block(snap: dict, trades: list[dict]) -> str:
                      f"| {r['tp_hits'] or '-'} | {r['result']} | {r['r']} |")
     lines += ["", scoreboard(trades), "",
               "Entries marked ~ are estimated from the chart; exact levels are only shown for the live trade.", "",
-              "Full analysis: [ANALYSIS.md](ANALYSIS.md) · data: [trades.csv](data/trades.csv), "
-              "[events.csv](data/events.csv), [levels.csv](data/levels.csv)", "",
-              "![Latest chart capture](latest.jpg)", END]
+              f"Full analysis: [ANALYSIS.md](ANALYSIS.md) · data: [trades.csv](data/{symbol}/trades.csv), "
+              f"[events.csv](data/{symbol}/events.csv), [levels.csv](data/{symbol}/levels.csv)", "",
+              f"![Latest {name} chart capture](latest-{symbol}.jpg)", end]
     return "\n".join(lines)
 
 
-def write_readme(path: Path, snap: dict, trades: list[dict]) -> None:
-    text = path.read_text(encoding="utf-8") if path.exists() else f"{START}\n{END}\n"
-    block = status_block(snap, trades)
-    pattern = re.compile(re.escape(START) + ".*?" + re.escape(END), re.S)
+def write_readme(path: Path, snap: dict, trades: list[dict], symbol: str) -> None:
+    start, end = _markers(symbol)
+    text = path.read_text(encoding="utf-8") if path.exists() else ""
+    block = status_block(snap, trades, symbol)
+    pattern = re.compile(re.escape(start) + ".*?" + re.escape(end), re.S)
     text = pattern.sub(lambda _: block, text) if pattern.search(text) else text + "\n" + block + "\n"
     path.write_text(text, encoding="utf-8")

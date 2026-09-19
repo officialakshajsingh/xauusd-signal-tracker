@@ -23,12 +23,12 @@ FRAME_SIZE = (1920, 1080)
 CHART_BOX = (0, 80, 1580, 1010)  # chart widget inside the 1920x1080 stream layout
 SCALE = 2  # upscale before OCR; small chart text reads far better at 2x
 
-NUM_AXIS = re.compile(r"^\d,\d{3}\.\d{2}$")
+# price formats differ by instrument: gold "4,396.00", bitcoin "81,320.00"
+NUM_AXIS = re.compile(r"^\d{1,3}(?:,\d{3})*\.\d{2}$")
 HHMM = re.compile(r"^([01]?\d|2[0-3]):([0-5]\d)$")
-LEVEL = re.compile(r"^(TP[123]|Entry|SL)\s*\(?\s*(\d{3,5}\.\d+)\s*\)?$", re.I)
-MARKER = re.compile(r"^(?:(Buy|Sell)\s*(\+)?|(TP[123]))$", re.I)
+LEVEL = re.compile(r"^(TP[123]|Entry|SL)\s*\(?\s*(\d{2,7}\.\d+)\s*\)?$", re.I)
 CLOCK = re.compile(r"(\d{1,2}):(\d{2}):(\d{2})\s*UTC\s*([+-]\d{1,2})(?::?(\d{2}))?", re.I)
-HEADER = re.compile(r"XAUUSD\D*?(\d,?\d{3}\.\d{2})\D*?(\d+\.\d{2})%", re.I)
+HEADER = re.compile(r"[A-Z]{3,12}\D*?(\d{1,3}(?:,\d{3})*\.\d{2})\D*?(\d+\.\d{2})%")
 HEADER_BOX = (10, 84, 300, 108)  # "XAUUSD 4,385.85 +1.03%" in the chart's top-left corner
 ROW = re.compile(r"^(current\s*position|current\s*trend|\d+\s*min|\d+\s*h|daily)\s*:?\s*"
                  r"(buy|sell|bullish|bearish|neutral)?$", re.I)
@@ -84,6 +84,36 @@ def read_header(frame: Image.Image) -> tuple[float, float] | None:
     red = ((r - g > 60) & (r > 150)).sum()
     sign = -1 if red > green else 1
     return float(m.group(1).replace(",", "")), sign * float(m.group(2))
+
+
+def _colour_markers(frame: Image.Image, axis_x: float) -> tuple[list[dict], list[tuple[float, float]]]:
+    """Signal label boxes (cyan Buy, pink Sell) and the small green TP-hit dots on the chart."""
+    import cv2
+
+    rgb = np.array(frame.convert("RGB"))
+    hsv = cv2.cvtColor(rgb, cv2.COLOR_RGB2HSV)  # OpenCV hue runs 0-179
+    h, s, v = (hsv[..., i].astype(int) for i in range(3))
+    area = np.zeros(h.shape, bool)
+    area[110:940, 15:int(min(axis_x, 1500))] = True  # chart plot area, left of the price axis
+
+    def components(mask):
+        n, _, stats, centres = cv2.connectedComponentsWithStats((mask & area).astype(np.uint8), 8)
+        return [(float(centres[i][0]), float(centres[i][1]), int(stats[i][2]), int(stats[i][3]), int(stats[i][4]))
+                for i in range(1, n)]
+
+    boxes = []
+    for side, hue in (("Buy", (85, 100)), ("Sell", (160, 174))):
+        mask = (h >= hue[0]) & (h <= hue[1]) & (s > 120) & (v > 150)
+        for x, y, w, ht, px in components(mask):
+            if 24 <= w <= 45 and 24 <= ht <= 36 and 450 <= px <= 1100:  # label box incl. its pointer
+                boxes.append({"side": side, "x": x, "y": y, "w": w})
+
+    green = (h >= 40) & (h <= 70) & (s > 120) & (v > 120)
+    comps = components(green)
+    big = [(x, y, w, ht) for x, y, w, ht, px in comps if px > 300]  # TP level labels, not dots
+    dots = [(x, y) for x, y, w, ht, px in comps if 6 <= px <= 20 and w <= 5 and ht <= 5
+            and not any(abs(x - bx) <= bw / 2 + 12 and abs(y - by) <= bh / 2 + 6 for bx, by, bw, bh in big)]
+    return boxes, dots
 
 
 def _largest_group(values: list[float], width: float) -> list[int]:
@@ -247,15 +277,33 @@ def extract(frame: Image.Image, captured_utc: datetime) -> dict:
         out["problems"].append("trade levels not found")
 
     # --- chart markers ----------------------------------------------------------
-    markers = []
-    for i, it in enumerate(items):
-        if i in used or it.x >= axis_x or it.x < 10:
-            continue
-        m = MARKER.match(it.text.replace(" ", ""))
-        if not m:
-            continue
-        label = (m.group(1).capitalize() + (m.group(2) or "")) if m.group(1) else m.group(3).upper()
-        markers.append({"label": label, "x": round(it.x), "time_utc": to_utc(it.x), "price_est": to_price(it.y)})
+    # Signal labels are found by colour (cyan Buy, pink Sell boxes): candles often cover their text.
+    # OCR only decides the "+". TP hits are the union of OCR'd "TP" labels and the green dot the
+    # indicator draws on the hit candle, numbered in order after their signal (targets hit in order).
+    boxes, dots = _colour_markers(frame, axis_x)
+    signals = []
+    for b in boxes:
+        texts = [it.text for it in items if abs(it.x - b["x"]) <= b["w"] / 2 + 4 and abs(it.y - b["y"]) <= 14]
+        plus = any("+" in t for t in texts) or (not texts and b["side"] == "Buy" and b["w"] >= 33)
+        signals.append({"label": b["side"] + ("+" if plus else ""), "x": b["x"], "y": b["y"]})
+    signals.sort(key=lambda s: s["x"])
+
+    tp_points = [(it.x, it.y) for i, it in enumerate(items) if i not in used and it.x < axis_x
+                 and re.fullmatch(r"TP[123]?", it.text.replace(" ", ""), re.I)]
+    for dx, dy in dots:  # a dot belongs to a TP label a few pixels above or below it
+        if not any(abs(dx - x) <= 10 and abs(dy - y) <= 26 for x, y in tp_points):
+            tp_points.append((dx, dy))
+    tps_by_signal: dict[int, list] = {}
+    for x, y in sorted(tp_points):
+        owner = max((i for i, s in enumerate(signals) if s["x"] < x), default=None)
+        if owner is not None:  # TPs left of the first visible signal belong to an off-screen trade
+            tps_by_signal.setdefault(owner, []).append((x, y))
+
+    markers = [{"label": s["label"], "x": round(s["x"]), "time_utc": to_utc(s["x"]), "price_est": to_price(s["y"])}
+               for s in signals]
+    for owner, pts in tps_by_signal.items():
+        for n, (x, y) in enumerate(pts[:3], start=1):
+            markers.append({"label": f"TP{n}", "x": round(x), "time_utc": to_utc(x), "price_est": to_price(y)})
     markers.sort(key=lambda mk: mk["x"])
     out["markers"] = markers
 
