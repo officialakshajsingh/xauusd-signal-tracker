@@ -58,15 +58,18 @@ def main() -> int:
     paths = ["data", "README.md"]
     status_file = Path("data/capture_status.json")
     symbol = json.loads(status_file.read_text(encoding="utf-8")).get("last_symbol") if status_file.exists() else None
-    if frame.exists() and symbol and now.minute < 10:
+    if frame.exists() and symbol and (now.minute < 10 or not Path(f"latest-{symbol}.jpg").exists()):
         shutil.copy(frame, f"latest-{symbol}.jpg")
         paths.append(f"latest-{symbol}.jpg")
     for old in sorted(FRAMES.glob("*.jpg"))[:-KEEP_FRAMES]:
         old.unlink(missing_ok=True)
 
     pushed = _push(f"capture {symbol or ''} {now:%Y-%m-%dT%H:%MZ}".replace("  ", " "), paths)
-    print(f"{now:%Y-%m-%d %H:%M}Z {'FAILED' if failed else 'ok'} {symbol or ''} | {pushed} | "
-          f"{summary[-1][:400]}", flush=True)
+    line = f"{now:%Y-%m-%d %H:%M}Z {'FAILED' if failed else 'ok'} {symbol or ''} | {pushed} | {summary[-1][:400]}"
+    if sys.stdout:
+        print(line, flush=True)
+    with open("_run.log", "a", encoding="utf-8") as log:  # pythonw (scheduled task) has no console
+        log.write(line + "\n")
     return 0
 
 
