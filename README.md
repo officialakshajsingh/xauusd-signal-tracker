@@ -69,3 +69,40 @@ Full analysis: [ANALYSIS.md](ANALYSIS.md) · data: [trades.csv](data/XAUUSD/trad
 
 ![Latest Gold (XAU/USD) chart capture](latest-XAUUSD.jpg)
 <!-- STATUS:XAUUSD:END -->
+
+<!-- STATUS:BTCUSDT:START -->
+## 📡 Bitcoin (BTC/USDT): live status
+
+Last capture **19 Sep 13:14 IST** (2026-09-19T07:44:45Z) · chart clock 11:44:49
+
+**Bitcoin (BTC/USDT): 81054.0** (-0.21% today) · Position **Sell** · Trend **Bearish**
+
+**Active trade:** Sell+ signalled 19 Sep 12:52 IST
+
+| Side | Entry | SL | TP1 | TP2 | TP3 | Risk |
+|---|---|---|---|---|---|---|
+| Sell | 81150.01 | 81200.1089 | 81099.9111 ✅ | 81049.8123 ✅ | 80999.7134 | 50.0989 |
+
+**Trend table:** 1m 🔴 · 3m 🔴 · 5m 🟢 · 15m 🟢 · 30m 🟢 · 1H 🟢 · 2H 🟢 · 4H 🟢 · 8H 🟢 · D 🔴
+
+### 📒 Bitcoin (BTC/USDT) trade log (latest 15)
+
+| # | Signal | Signalled | Entry | SL | Targets hit | Result | R |
+|---|---|---|---|---|---|---|---|
+| 8 | Sell+ | 19 Sep 12:52 IST | 81150.01 | 81200.1089 | TP1 TP2 | TP2 so far |  |
+| 7 | Buy | 19 Sep 12:31 IST | ~81046.99 |  | TP1 TP2 TP3 | TP3 | 3 |
+| 6 | Sell+ | 19 Sep 12:22 IST | ~81093.48 |  | - | No TP | -1 |
+| 5 | Buy | 19 Sep 11:59 IST | ~80942.84 |  | TP1 | TP1 | 1 |
+| 4 | Sell | 19 Sep 11:05 IST | ~81105.02 |  | - | No TP | -1 |
+| 3 | Buy | 19 Sep 10:54 IST | ~81058.63 |  | - | No TP | -1 |
+| 2 | Sell+ | 19 Sep 10:43 IST | ~81101.68 |  | - | No TP | -1 |
+| 1 | Buy | 19 Sep 10:31 IST | ~81001.96 |  | TP1 | TP1 | 1 |
+
+**Scoreboard (7 closed trades):** reached TP1 3/7 (43%) · TP2 1/7 · TP3 1/7 · no target 4/7 · net +1R *(exit at the best TP reached; a trade with no TP counted as -1R)*
+
+Entries marked ~ are estimated from the chart; exact levels are only shown for the live trade.
+
+Full analysis: [ANALYSIS.md](ANALYSIS.md) · data: [trades.csv](data/BTCUSDT/trades.csv), [events.csv](data/BTCUSDT/events.csv), [levels.csv](data/BTCUSDT/levels.csv)
+
+![Latest Bitcoin (BTC/USDT) chart capture](latest-BTCUSDT.jpg)
+<!-- STATUS:BTCUSDT:END -->

@@ -1,0 +1,9 @@
+id,signal,side,signal_time_utc,price_est,entry,sl,tp1,tp2,tp3,risk,tp_hits,status,result,r,closed_by_utc,trend,mtf
+1,Buy,Buy,2026-09-19T05:01Z,81001.96,,,,,,,TP1,closed,TP1,1,2026-09-19T05:13Z,,
+2,Sell+,Sell,2026-09-19T05:13Z,81101.68,,,,,,,,closed,No TP,-1,2026-09-19T05:24Z,,
+3,Buy,Buy,2026-09-19T05:24Z,81058.63,,,,,,,,closed,No TP,-1,2026-09-19T05:35Z,,
+4,Sell,Sell,2026-09-19T05:35Z,81105.02,,,,,,,,closed,No TP,-1,2026-09-19T06:29Z,,
+5,Buy,Buy,2026-09-19T06:29Z,80942.84,,,,,,,TP1,closed,TP1,1,2026-09-19T06:52Z,,
+6,Sell+,Sell,2026-09-19T06:52Z,81093.48,,,,,,,,closed,No TP,-1,2026-09-19T07:01Z,,
+7,Buy,Buy,2026-09-19T07:01Z,81046.99,,,,,,,TP1 TP2 TP3,closed,TP3,3,2026-09-19T07:22Z,,
+8,Sell+,Sell,2026-09-19T07:22Z,81202.14,81150.01,81200.1089,81099.9111,81049.8123,80999.7134,50.0989,TP1 TP2,open,TP2 so far,,,Bearish,1m- 3m- 5m+ 15m+ 30m+ 1H+ 2H+ 4H+ 8H+ D-
